@@ -104,14 +104,8 @@
   color: var(--title-header-twohop);
 }
 
-/* properties (tags & links share the same style) */
+/* properties */
 .twohop-links-properties-header {
-  background-color: var(--bg-header-properties);
-  color: var(--title-header-properties);
-}
-
-/* links-based headers use the same properties style */
-.twohop-links-links-header {
   background-color: var(--bg-header-properties);
   color: var(--title-header-properties);
 }

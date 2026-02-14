@@ -99,26 +99,6 @@ export default class TwohopLinksPlugin extends Plugin {
     );
   }
 
-  private async openTagPage(property: string, key: string): Promise<void> {
-    // For links-based groups, the property is already a page name
-    // For tags, try to open a page with that tag name
-    const pageName = property;
-    const activeFile = this.app.workspace.getActiveFile();
-    const sourcePath = activeFile ? activeFile.path : "";
-
-    // Try to find a file matching the property name
-    const file = this.app.metadataCache.getFirstLinkpathDest(pageName, sourcePath);
-    if (file) {
-      return this.app.workspace.openLinkText(pageName, sourcePath);
-    }
-
-    // If no file found, ask to create
-    if (!confirm(`Create new file: ${pageName}?`)) {
-      return;
-    }
-    return this.app.workspace.openLinkText(pageName, sourcePath);
-  }
-
   async updateTwoHopLinksView() {
     if (this.isTwoHopLinksViewOpen()) {
       this.app.workspace.detachLeavesOfType("TwoHopLinksView");

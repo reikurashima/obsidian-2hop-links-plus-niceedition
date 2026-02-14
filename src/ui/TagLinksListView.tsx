@@ -7,6 +7,7 @@ import { App, setIcon } from "obsidian";
 interface PropertiesLinksListViewProps {
   propertiesLinksList: PropertiesLinks[];
   onClick: (fileEntity: FileEntity) => Promise<void>;
+  onTagClick: (property: string, key: string) => Promise<void>;
   getPreview: (fileEntity: FileEntity) => Promise<string>;
   getTitle: (fileEntity: FileEntity) => Promise<string>;
   app: App;
@@ -18,6 +19,7 @@ interface PropertiesLinksListViewProps {
 interface LinkComponentProps {
   tagLink: PropertiesLinks;
   onClick: (fileEntity: FileEntity) => Promise<void>;
+  onTagClick: (property: string, key: string) => Promise<void>;
   getPreview: (fileEntity: FileEntity) => Promise<string>;
   getTitle: (fileEntity: FileEntity) => Promise<string>;
   app: App;
@@ -79,6 +81,13 @@ const LinkComponent = React.memo(
                 ? `twohop-links-${this.props.tagLink.key}-header`
                 : ""
             } twohop-links-properties-header twohop-links-box`}
+            onClick={() =>
+              this.props.onTagClick(
+                this.props.tagLink.property,
+                this.props.tagLink.key
+              )
+            }
+            style={{ cursor: "pointer" }}
           >
             {this.props.tagLink.key
               ? `${this.props.tagLink.key}: ${this.props.tagLink.property}`
@@ -122,6 +131,7 @@ const PropertiesLinksListView = React.memo(
                 key={index}
                 tagLink={tagLink}
                 onClick={this.props.onClick}
+                onTagClick={this.props.onTagClick}
                 getPreview={this.props.getPreview}
                 getTitle={this.props.getTitle}
                 app={this.props.app}

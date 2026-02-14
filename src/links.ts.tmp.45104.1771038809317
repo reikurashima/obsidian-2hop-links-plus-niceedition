@@ -5,11 +5,13 @@ import {
   removeBlockReference,
   shouldExcludePath,
 } from "./utils";
+import { TwohopLink } from "./model/TwohopLink";
 import {
   getSortFunction,
   getSortFunctionForFile,
   getSortedFiles,
   getTagHierarchySortFunction,
+  getTwoHopSortFunction,
 } from "./sort";
 import { PropertiesLinks } from "./model/PropertiesLinks";
 
@@ -108,13 +110,13 @@ export class Links {
       activeFileCache != null &&
       (activeFileCache.links != null ||
         activeFileCache.embeds != null ||
-        (activeFileCache as any).frontmatterLinks != null)
+        activeFileCache.frontmatterLinks != null)
     ) {
       const seen = new Set<string>();
       const linkEntities = [
         ...(activeFileCache.links || []),
         ...(activeFileCache.embeds || []),
-        ...((activeFileCache as any).frontmatterLinks || []),
+        ...(activeFileCache.frontmatterLinks || []),
       ];
 
       for (const it of linkEntities) {
@@ -208,7 +210,7 @@ export class Links {
       const linkEntities = [
         ...(activeFileCache.links || []),
         ...(activeFileCache.embeds || []),
-        ...((activeFileCache as any).frontmatterLinks || []),
+        ...(activeFileCache.frontmatterLinks || []),
       ];
 
       for (const it of linkEntities) {
@@ -320,9 +322,6 @@ export class Links {
     const resolvedLinks: Record<string, Record<string, number>> = this.app
       .metadataCache.resolvedLinks;
     const backLinkEntities: FileEntity[] = [];
-    const seenSources = new Set<string>();
-
-    // 1. Standard backlinks: files that have [[activeFile]] link
     for (const src of Object.keys(resolvedLinks)) {
       if (shouldExcludePath(src, this.settings.excludePaths)) {
         continue;
@@ -336,43 +335,11 @@ export class Links {
           ) {
             continue;
           }
-          if (!seenSources.has(src)) {
-            seenSources.add(src);
-            backLinkEntities.push(new FileEntity(src, linkText));
-          }
+          backLinkEntities.push(new FileEntity(src, linkText));
         }
       }
     }
 
-    // 2. Tag-based backlinks: files that have #activeFileName tag
-    //    e.g. if activeFile is "〇〇.md", files with #〇〇 tag are backlinks
-    const activeFileName = filePathToLinkText(activeFile.path);
-    const markdownFiles = this.app.vault.getMarkdownFiles();
-
-    for (const mdFile of markdownFiles) {
-      if (mdFile.path === activeFile.path) continue;
-      if (shouldExcludePath(mdFile.path, this.settings.excludePaths)) continue;
-      if (seenSources.has(mdFile.path)) continue;
-
-      const cache = this.app.metadataCache.getFileCache(mdFile);
-      if (!cache) continue;
-
-      const fileTags = this.getTagsFromCache(cache, this.settings.excludeTags);
-      // Check if any tag matches the active file name
-      if (fileTags.some((tag) => tag === activeFileName)) {
-        const linkText = filePathToLinkText(mdFile.path);
-        if (
-          this.settings.enableDuplicateRemoval &&
-          forwardLinkSet.has(linkText)
-        ) {
-          continue;
-        }
-        seenSources.add(mdFile.path);
-        backLinkEntities.push(new FileEntity(mdFile.path, linkText));
-      }
-    }
-
-    // 3. Canvas backlinks
     const allFiles: TFile[] = this.app.vault.getFiles();
     const canvasFiles: TFile[] = allFiles.filter(
       (file) => file.extension === "canvas"
@@ -398,8 +365,7 @@ export class Links {
         for (const node of canvasData.nodes) {
           if (node.type === "file" && node.file === activeFile.path) {
             const linkText = filePathToLinkText(canvasFile.path);
-            if (!forwardLinkSet.has(linkText) && !seenSources.has(canvasFile.path)) {
-              seenSources.add(canvasFile.path);
+            if (!forwardLinkSet.has(linkText)) {
               backLinkEntities.push(new FileEntity(canvasFile.path, linkText));
             }
           }
@@ -412,6 +378,181 @@ export class Links {
       (entity) => entity.sourcePath,
       this.settings.sortOrder
     );
+  }
+
+  async getTwohopLinks(
+    activeFile: TFile,
+    links: Record<string, Record<string, number>>,
+    forwardLinkSet: Set<string>,
+    twoHopLinkSet: Set<string>
+  ): Promise<TwohopLink[]> {
+    const twoHopLinks: Record<string, FileEntity[]> = {};
+    const twohopLinkList = await this.aggregate2hopLinks(activeFile, links);
+
+    if (twohopLinkList == null) {
+      return [];
+    }
+
+    let seenLinks = new Set<string>();
+
+    if (twohopLinkList) {
+      for (const k of Object.keys(twohopLinkList)) {
+        if (twohopLinkList[k].length > 0) {
+          twoHopLinks[k] = twohopLinkList[k]
+            .filter((it) => !shouldExcludePath(it, this.settings.excludePaths))
+            .map((it) => {
+              const linkText = filePathToLinkText(it);
+              if (
+                this.settings.enableDuplicateRemoval &&
+                (forwardLinkSet.has(removeBlockReference(linkText)) ||
+                  seenLinks.has(linkText))
+              ) {
+                return null;
+              }
+              seenLinks.add(linkText);
+              twoHopLinkSet.add(linkText);
+              return new FileEntity(activeFile.path, linkText);
+            })
+            .filter((it) => it);
+        }
+      }
+    }
+
+    let linkKeys: string[] = [];
+    if (activeFile.extension === "canvas") {
+      const canvasContent = await this.app.vault.read(activeFile);
+      let canvasData;
+      try {
+        canvasData = JSON.parse(canvasContent);
+      } catch (error) {
+        console.error("Invalid JSON in canvas:", error);
+        canvasData = { nodes: [] };
+      }
+
+      if (Array.isArray(canvasData.nodes)) {
+        linkKeys = canvasData.nodes
+          .filter((node: any) => node.type === "file")
+          .map((node: any) => node.file);
+      } else {
+        linkKeys = [];
+      }
+    } else if (links[activeFile.path]) {
+      linkKeys = Object.keys(links[activeFile.path]);
+    }
+
+    const twoHopLinkEntities = (
+      await Promise.all(
+        linkKeys
+          .filter(
+            (path) => !shouldExcludePath(path, this.settings.excludePaths)
+          )
+          .map(async (path) => {
+            if (twoHopLinks[path]) {
+              const sortedFileEntities = await this.getSortedFileEntities(
+                twoHopLinks[path],
+                (entity) => {
+                  const file = this.app.metadataCache.getFirstLinkpathDest(
+                    entity.linkText,
+                    entity.sourcePath
+                  );
+                  return file ? file.path : null;
+                },
+                this.settings.sortOrder
+              );
+
+              return {
+                link: new FileEntity(activeFile.path, path),
+                fileEntities: sortedFileEntities,
+              };
+            }
+            return null;
+          })
+      )
+    ).filter((it) => it);
+
+    const twoHopLinkStatsPromises = twoHopLinkEntities.map(
+      async (twoHopLinkEntity) => {
+        const stat = await this.app.vault.adapter.stat(
+          twoHopLinkEntity.link.linkText
+        );
+        return { twoHopLinkEntity, stat };
+      }
+    );
+
+    const twoHopLinkStats = (await Promise.all(twoHopLinkStatsPromises)).filter(
+      (it) => it && it.twoHopLinkEntity && it.stat
+    );
+
+    const twoHopSortFunction = getTwoHopSortFunction(this.settings.sortOrder);
+    twoHopLinkStats.sort(twoHopSortFunction);
+
+    return twoHopLinkStats
+      .map(
+        (it) =>
+          new TwohopLink(
+            it!.twoHopLinkEntity.link,
+            it!.twoHopLinkEntity.fileEntities
+          )
+      )
+      .filter((it) => it.fileEntities.length > 0);
+  }
+
+  async aggregate2hopLinks(
+    activeFile: TFile,
+    links: Record<string, Record<string, number>>
+  ): Promise<Record<string, string[]>> {
+    const result: Record<string, string[]> = {};
+
+    let activeFileLinks = new Set<string>();
+
+    if (links && activeFile && activeFile.path && links[activeFile.path]) {
+      activeFileLinks = new Set(Object.keys(links[activeFile.path]));
+    }
+
+    if (activeFile.extension === "canvas") {
+      const canvasContent = await this.app.vault.read(activeFile);
+      let canvasData;
+      try {
+        canvasData = JSON.parse(canvasContent);
+        if (canvasData.nodes) {
+          if (!Array.isArray(canvasData.nodes)) {
+            console.error("Invalid structure in canvas: nodes is not an array");
+            canvasData = { nodes: [] };
+          }
+        }
+      } catch (error) {
+        console.error("Invalid JSON in canvas:", error);
+        canvasData = { nodes: [] };
+      }
+
+      if (canvasData.nodes) {
+        for (const node of canvasData.nodes) {
+          if (node.type === "file") {
+            activeFileLinks.add(node.file);
+          }
+        }
+      }
+    }
+
+    if (links) {
+      for (const src of Object.keys(links)) {
+        if (src == activeFile.path) {
+          continue;
+        }
+        const link = links[src];
+        if (link) {
+          for (const dest of Object.keys(link)) {
+            if (activeFileLinks.has(dest)) {
+              if (!result[dest]) {
+                result[dest] = [];
+              }
+              result[dest].push(src);
+            }
+          }
+        }
+      }
+    }
+    return result;
   }
 
   async getLinksListOfFilesWithTags(

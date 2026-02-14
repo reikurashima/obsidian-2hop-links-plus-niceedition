@@ -99,26 +99,6 @@ export default class TwohopLinksPlugin extends Plugin {
     );
   }
 
-  private async openTagPage(property: string, key: string): Promise<void> {
-    // For links-based groups, the property is already a page name
-    // For tags, try to open a page with that tag name
-    const pageName = property;
-    const activeFile = this.app.workspace.getActiveFile();
-    const sourcePath = activeFile ? activeFile.path : "";
-
-    // Try to find a file matching the property name
-    const file = this.app.metadataCache.getFirstLinkpathDest(pageName, sourcePath);
-    if (file) {
-      return this.app.workspace.openLinkText(pageName, sourcePath);
-    }
-
-    // If no file found, ask to create
-    if (!confirm(`Create new file: ${pageName}?`)) {
-      return;
-    }
-    return this.app.workspace.openLinkText(pageName, sourcePath);
-  }
-
   async updateTwoHopLinksView() {
     if (this.isTwoHopLinksViewOpen()) {
       this.app.workspace.detachLeavesOfType("TwoHopLinksView");
@@ -210,16 +190,20 @@ export default class TwohopLinksPlugin extends Plugin {
       this.previousTags.sort().join(",") !== currentTags.sort().join(",")
     ) {
       const {
+        forwardLinks,
         newLinks,
         backwardLinks,
+        twoHopLinks,
         tagLinksList,
         frontmatterKeyLinksList,
       } = await this.links.gatherTwoHopLinks(activeFile);
 
       for (const container of this.getContainerElements(markdownView)) {
         await this.injectTwohopLinks(
+          forwardLinks,
           newLinks,
           backwardLinks,
+          twoHopLinks,
           tagLinksList,
           frontmatterKeyLinksList,
           container
@@ -232,27 +216,38 @@ export default class TwohopLinksPlugin extends Plugin {
   }
 
   async injectTwohopLinks(
+    forwardConnectedLinks: FileEntity[],
     newLinks: FileEntity[],
     backwardConnectedLinks: FileEntity[],
+    twoHopLinks: TwohopLink[],
     tagLinksList: PropertiesLinks[],
     frontmatterKeyLinksList: PropertiesLinks[],
     container: Element
   ) {
+    const showForwardConnectedLinks = this.settings.showForwardConnectedLinks;
+    const showBackwardConnectedLinks = this.settings.showBackwardConnectedLinks;
+    const showTwohopLinks = this.settings.showTwohopLinks;
+    const showNewLinks = this.settings.showNewLinks;
+    const showTagsLinks = this.settings.showTagsLinks;
+    const showPropertiesLinks = this.settings.showPropertiesLinks;
     ReactDOM.render(
       <TwohopLinksRootView
+        forwardConnectedLinks={forwardConnectedLinks}
         newLinks={newLinks}
         backwardConnectedLinks={backwardConnectedLinks}
+        twoHopLinks={twoHopLinks}
         tagLinksList={tagLinksList}
         frontmatterKeyLinksList={frontmatterKeyLinksList}
         onClick={this.openFile.bind(this)}
-        onTagClick={this.openTagPage.bind(this)}
         getPreview={readPreview.bind(this)}
         getTitle={getTitle.bind(this)}
         app={this.app}
-        showBackwardConnectedLinks={this.settings.showBackwardConnectedLinks}
-        showNewLinks={this.settings.showNewLinks}
-        showTagsLinks={this.settings.showTagsLinks}
-        showPropertiesLinks={this.settings.showPropertiesLinks}
+        showForwardConnectedLinks={showForwardConnectedLinks}
+        showBackwardConnectedLinks={showBackwardConnectedLinks}
+        showTwohopLinks={showTwohopLinks}
+        showNewLinks={showNewLinks}
+        showTagsLinks={showTagsLinks}
+        showPropertiesLinks={showPropertiesLinks}
         autoLoadTwoHopLinks={this.settings.autoLoadTwoHopLinks}
         initialBoxCount={this.settings.initialBoxCount}
         initialSectionCount={this.settings.initialSectionCount}

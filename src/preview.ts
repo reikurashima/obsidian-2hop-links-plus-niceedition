@@ -43,7 +43,7 @@ export async function readPreview(fileEntity: FileEntity) {
   const content = await this.app.vault.cachedRead(file);
 
   const combinedMatch = content.match(
-    /<iframe[^>]*src="([^"]+)"[^>]*>|!\[[^\]]*\]\((https:\/\/www\.youtube\.com\/embed\/[^\)]+|https:\/\/www\.youtube\.com\/watch\?v=[^\)]+|https:\/\/youtu\.be\/[^\)]+)\)|!\[(?:[^\]]*?)\]\(((?!https?:\/\/twitter\.com\/)[^\)]+?(?:png|bmp|jpg|jpeg))\)|!\[\[([^\]]+.(?:png|bmp|jpg|jpeg))\]\]/
+    /<iframe[^>]*src="([^"]+)"[^>]*>|!\[[^\]]*\]\((https:\/\/www\.youtube\.com\/embed\/[^\)]+|https:\/\/www\.youtube\.com\/watch\?v=[^\)]+|https:\/\/youtu\.be\/[^\)]+)\)|!\[(?:[^\]]*?)\]\(((?!https?:\/\/twitter\.com\/)[^\)]+?(?:png|bmp|jpg|jpeg|gif|svg|webp|avif))\)|!\[\[([^\]\|]+\.(?:png|bmp|jpg|jpeg|gif|svg|webp|avif))(?:\|[^\]]*)?\]\]/
   );
   if (combinedMatch) {
     const iframeUrl = combinedMatch[1];

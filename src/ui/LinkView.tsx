@@ -69,7 +69,7 @@ export default class LinkView
       fileEntity.sourcePath
     );
     let leaf: WorkspaceLeaf;
-    leaf = app.workspace.getLeaf(options);
+    leaf = app.workspace.getLeaf(options as any);
 
     await leaf.openFile(file);
   }
@@ -87,7 +87,7 @@ export default class LinkView
         ? event.changedTouches[0].clientY
         : event.clientY;
 
-    const menu = new Menu();
+    const menu = new Menu(this.props.app);
 
     menu.addItem((item) =>
       item.setTitle("Open link").onClick(async () => {

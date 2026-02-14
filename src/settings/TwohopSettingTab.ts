@@ -4,9 +4,7 @@ import { saveSettings } from ".";
 
 export interface TwohopPluginSettings {
   autoLoadTwoHopLinks: boolean;
-  showForwardConnectedLinks: boolean;
   showBackwardConnectedLinks: boolean;
-  showTwohopLinks: boolean;
   showNewLinks: boolean;
   showTagsLinks: boolean;
   showPropertiesLinks: boolean;
@@ -64,16 +62,10 @@ export class TwohopSettingTab extends PluginSettingTab {
         createdAsc: "Created time (old to new)",
       }
     );
-    this.createToggleSetting("Show Links", "", "showForwardConnectedLinks");
     this.createToggleSetting(
       "Show Back Links",
       "",
       "showBackwardConnectedLinks"
-    );
-    this.createToggleSetting(
-      "Show 2Hop Links",
-      "",
-      "showTwohopLinks"
     );
     this.createToggleSetting(
       "Show New Links",
@@ -81,8 +73,8 @@ export class TwohopSettingTab extends PluginSettingTab {
       "showNewLinks"
     );
     this.createToggleSetting(
-      "Show Tags Links",
-      "",
+      "Show Links & Tags",
+      "Show related files grouped by shared links and tags (Scrapbox-style)",
       "showTagsLinks"
     );
     this.createToggleSetting(

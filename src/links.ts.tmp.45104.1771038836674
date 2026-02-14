@@ -108,13 +108,13 @@ export class Links {
       activeFileCache != null &&
       (activeFileCache.links != null ||
         activeFileCache.embeds != null ||
-        (activeFileCache as any).frontmatterLinks != null)
+        activeFileCache.frontmatterLinks != null)
     ) {
       const seen = new Set<string>();
       const linkEntities = [
         ...(activeFileCache.links || []),
         ...(activeFileCache.embeds || []),
-        ...((activeFileCache as any).frontmatterLinks || []),
+        ...(activeFileCache.frontmatterLinks || []),
       ];
 
       for (const it of linkEntities) {
@@ -208,7 +208,7 @@ export class Links {
       const linkEntities = [
         ...(activeFileCache.links || []),
         ...(activeFileCache.embeds || []),
-        ...((activeFileCache as any).frontmatterLinks || []),
+        ...(activeFileCache.frontmatterLinks || []),
       ];
 
       for (const it of linkEntities) {
@@ -320,9 +320,6 @@ export class Links {
     const resolvedLinks: Record<string, Record<string, number>> = this.app
       .metadataCache.resolvedLinks;
     const backLinkEntities: FileEntity[] = [];
-    const seenSources = new Set<string>();
-
-    // 1. Standard backlinks: files that have [[activeFile]] link
     for (const src of Object.keys(resolvedLinks)) {
       if (shouldExcludePath(src, this.settings.excludePaths)) {
         continue;
@@ -336,43 +333,11 @@ export class Links {
           ) {
             continue;
           }
-          if (!seenSources.has(src)) {
-            seenSources.add(src);
-            backLinkEntities.push(new FileEntity(src, linkText));
-          }
+          backLinkEntities.push(new FileEntity(src, linkText));
         }
       }
     }
 
-    // 2. Tag-based backlinks: files that have #activeFileName tag
-    //    e.g. if activeFile is "〇〇.md", files with #〇〇 tag are backlinks
-    const activeFileName = filePathToLinkText(activeFile.path);
-    const markdownFiles = this.app.vault.getMarkdownFiles();
-
-    for (const mdFile of markdownFiles) {
-      if (mdFile.path === activeFile.path) continue;
-      if (shouldExcludePath(mdFile.path, this.settings.excludePaths)) continue;
-      if (seenSources.has(mdFile.path)) continue;
-
-      const cache = this.app.metadataCache.getFileCache(mdFile);
-      if (!cache) continue;
-
-      const fileTags = this.getTagsFromCache(cache, this.settings.excludeTags);
-      // Check if any tag matches the active file name
-      if (fileTags.some((tag) => tag === activeFileName)) {
-        const linkText = filePathToLinkText(mdFile.path);
-        if (
-          this.settings.enableDuplicateRemoval &&
-          forwardLinkSet.has(linkText)
-        ) {
-          continue;
-        }
-        seenSources.add(mdFile.path);
-        backLinkEntities.push(new FileEntity(mdFile.path, linkText));
-      }
-    }
-
-    // 3. Canvas backlinks
     const allFiles: TFile[] = this.app.vault.getFiles();
     const canvasFiles: TFile[] = allFiles.filter(
       (file) => file.extension === "canvas"
@@ -398,8 +363,7 @@ export class Links {
         for (const node of canvasData.nodes) {
           if (node.type === "file" && node.file === activeFile.path) {
             const linkText = filePathToLinkText(canvasFile.path);
-            if (!forwardLinkSet.has(linkText) && !seenSources.has(canvasFile.path)) {
-              seenSources.add(canvasFile.path);
+            if (!forwardLinkSet.has(linkText)) {
               backLinkEntities.push(new FileEntity(canvasFile.path, linkText));
             }
           }

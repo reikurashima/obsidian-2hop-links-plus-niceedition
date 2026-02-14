@@ -62,20 +62,16 @@ export class SeparatePaneView extends ItemView {
         activeFile === null
       ) {
         const {
-          forwardLinks,
           newLinks,
           backwardLinks,
-          twoHopLinks,
           tagLinksList,
           frontmatterKeyLinksList,
         } = await this.links.gatherTwoHopLinks(activeFile);
 
         ReactDOM.unmountComponentAtNode(this.containerEl);
         await this.plugin.injectTwohopLinks(
-          forwardLinks,
           newLinks,
           backwardLinks,
-          twoHopLinks,
           tagLinksList,
           frontmatterKeyLinksList,
           this.containerEl
