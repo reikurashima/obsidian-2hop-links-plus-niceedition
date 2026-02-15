@@ -188,6 +188,26 @@ export class Links {
       }
     }
 
+    // Also add tags whose corresponding page doesn't exist yet
+    if (activeFileCache) {
+      const seen = newLinks.reduce((s, e) => { s.add(e.linkText); return s; }, new Set<string>());
+      const activeFileTags = this.getTagsFromCache(
+        activeFileCache,
+        this.settings.excludeTags
+      );
+      for (const tag of activeFileTags) {
+        if (seen.has(tag)) continue;
+        seen.add(tag);
+        const tagFile = this.app.metadataCache.getFirstLinkpathDest(
+          tag,
+          activeFile.path
+        );
+        if (!tagFile) {
+          newLinks.push(new FileEntity(activeFile.path, tag));
+        }
+      }
+    }
+
     return newLinks;
   }
 
