@@ -83,7 +83,7 @@ export async function readPreview(fileEntity: FileEntity) {
   return lines
     .filter((it: string) => {
       // Keep lines with content, exclude markdown headings (# ) but keep hashtags (#tag)
-      return it.match(/\S/) && !it.match(/^#{1,6}\s/) && !it.match(/^https?:\/\//);
+      return it.match(/\S/) && !it.match(/^#{1,6}\s/) && !it.match(/^(https?|capacitor):\/\//);
     })
     .slice(0, 6)
     .join("\n");

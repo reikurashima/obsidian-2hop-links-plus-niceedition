@@ -204,7 +204,7 @@ export default class LinkView
         </div>
         <div className={"twohop-links-box-preview"}>
           {this.state.preview &&
-          this.state.preview.match(/^(app|https?):\/\//) ? (
+          this.state.preview.match(/^(app|https?|capacitor):\/\//) ? (
             <img src={this.state.preview} alt={"preview image"} />
           ) : (
             <div>{this.renderPreviewWithTags(this.state.preview)}</div>
