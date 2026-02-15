@@ -372,8 +372,34 @@ export class Links {
       }
     }
 
-    // 3. Tag page links: if active file has #AA tag, add "AA" page to backlinks
+    // 3. Forward links: pages that this file links to via [[link]]
     const activeFileCache = this.app.metadataCache.getFileCache(activeFile);
+    if (activeFileCache) {
+      const linkEntities = [
+        ...(activeFileCache.links || []),
+        ...(activeFileCache.embeds || []),
+        ...((activeFileCache as any).frontmatterLinks || []),
+      ];
+      for (const it of linkEntities) {
+        const key = removeBlockReference(it.link);
+        const targetFile = this.app.metadataCache.getFirstLinkpathDest(
+          key,
+          activeFile.path
+        );
+        if (
+          targetFile &&
+          targetFile.path !== activeFile.path &&
+          !seenSources.has(targetFile.path) &&
+          !shouldExcludePath(targetFile.path, this.settings.excludePaths)
+        ) {
+          seenSources.add(targetFile.path);
+          const linkText = filePathToLinkText(targetFile.path);
+          backLinkEntities.push(new FileEntity(targetFile.path, linkText));
+        }
+      }
+    }
+
+    // 4. Tag page links: if active file has #AA tag, add "AA" page to backlinks
     if (activeFileCache) {
       const activeFileTags = this.getTagsFromCache(
         activeFileCache,
@@ -404,7 +430,7 @@ export class Links {
       }
     }
 
-    // 4. Canvas backlinks
+    // 5. Canvas backlinks
     const allFiles: TFile[] = this.app.vault.getFiles();
     const canvasFiles: TFile[] = allFiles.filter(
       (file) => file.extension === "canvas"
