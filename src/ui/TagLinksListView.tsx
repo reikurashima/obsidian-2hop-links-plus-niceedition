@@ -89,9 +89,11 @@ const LinkComponent = React.memo(
             }
             style={{ cursor: "pointer" }}
           >
-            {this.props.tagLink.key
-              ? `${this.props.tagLink.key}: ${this.props.tagLink.property}`
-              : this.props.tagLink.property}
+            {this.props.tagLink.key === "tags"
+              ? `🔗${this.props.tagLink.property}`
+              : this.props.tagLink.key
+                ? `${this.props.tagLink.key}: ${this.props.tagLink.property}`
+                : this.props.tagLink.property}
           </div>
           {this.props.tagLink.fileEntities
             .slice(0, this.state.displayedEntitiesCount)

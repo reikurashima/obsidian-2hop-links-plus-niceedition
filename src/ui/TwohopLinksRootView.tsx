@@ -168,7 +168,7 @@ export default class TwohopLinksRootView extends React.Component<
             getPreview={this.props.getPreview}
             getTitle={this.props.getTitle}
             onLoadMore={() => this.loadMoreBox("backwardConnectedLinks")}
-            title={"Back Links"}
+            title={"Links"}
             className={"twohop-links-back-links"}
             app={this.props.app}
           />

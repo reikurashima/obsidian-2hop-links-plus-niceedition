@@ -372,7 +372,39 @@ export class Links {
       }
     }
 
-    // 3. Canvas backlinks
+    // 3. Tag page links: if active file has #AA tag, add "AA" page to backlinks
+    const activeFileCache = this.app.metadataCache.getFileCache(activeFile);
+    if (activeFileCache) {
+      const activeFileTags = this.getTagsFromCache(
+        activeFileCache,
+        this.settings.excludeTags
+      );
+      for (const tag of activeFileTags) {
+        // Find a file matching the tag name
+        const tagFile = this.app.metadataCache.getFirstLinkpathDest(
+          tag,
+          activeFile.path
+        );
+        if (
+          tagFile &&
+          tagFile.path !== activeFile.path &&
+          !seenSources.has(tagFile.path) &&
+          !shouldExcludePath(tagFile.path, this.settings.excludePaths)
+        ) {
+          const linkText = filePathToLinkText(tagFile.path);
+          if (
+            this.settings.enableDuplicateRemoval &&
+            forwardLinkSet.has(linkText)
+          ) {
+            continue;
+          }
+          seenSources.add(tagFile.path);
+          backLinkEntities.push(new FileEntity(tagFile.path, linkText));
+        }
+      }
+    }
+
+    // 4. Canvas backlinks
     const allFiles: TFile[] = this.app.vault.getFiles();
     const canvasFiles: TFile[] = allFiles.filter(
       (file) => file.extension === "canvas"
@@ -481,8 +513,18 @@ export class Links {
       "tags"
     );
 
-    const sortFunction = getTagHierarchySortFunction(this.settings.sortOrder);
-    return tagLinksEntities.sort(sortFunction);
+    // Sort by the order tags appear in the active file (deduplicated, first occurrence)
+    const tagOrderMap = new Map<string, number>();
+    for (const tag of activeFileTags) {
+      if (!tagOrderMap.has(tag)) {
+        tagOrderMap.set(tag, tagOrderMap.size);
+      }
+    }
+    return tagLinksEntities.sort((a, b) => {
+      const aIndex = tagOrderMap.get(a.property) ?? Infinity;
+      const bIndex = tagOrderMap.get(b.property) ?? Infinity;
+      return aIndex - bIndex;
+    });
   }
 
   async getLinksListOfFilesWithFrontmatterKeys(
