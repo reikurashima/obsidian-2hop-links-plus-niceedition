@@ -82,7 +82,8 @@ export async function readPreview(fileEntity: FileEntity) {
   const lines = shortenExternalLinkInPreview(updatedContent).split(/\n/);
   return lines
     .filter((it: string) => {
-      return it.match(/\S/) && !it.match(/^#/) && !it.match(/^https?:\/\//);
+      // Keep lines with content, exclude markdown headings (# ) but keep hashtags (#tag)
+      return it.match(/\S/) && !it.match(/^#{1,6}\s/) && !it.match(/^(https?|capacitor):\/\//);
     })
     .slice(0, 6)
     .join("\n");

@@ -141,6 +141,23 @@ export default class LinkView
     this.setState({ touchStart: 0, dragging: false });
   };
 
+  renderPreviewWithTags(text: string): JSX.Element[] | string {
+    if (!text) return text;
+    // Split text by hashtag patterns and render tags in blue
+    const parts = text.split(/(#[^\s#,;:!?()[\]{}]+)/g);
+    if (parts.length === 1) return text;
+    return parts.map((part, index) => {
+      if (part.match(/^#[^\s#,;:!?()[\]{}]+$/)) {
+        return (
+          <span key={index} className="preview-tag">
+            {part}
+          </span>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  }
+
   render(): JSX.Element {
     return (
       <div
@@ -187,10 +204,10 @@ export default class LinkView
         </div>
         <div className={"twohop-links-box-preview"}>
           {this.state.preview &&
-          this.state.preview.match(/^(app|https?):\/\//) ? (
+          this.state.preview.match(/^(app|https?|capacitor):\/\//) ? (
             <img src={this.state.preview} alt={"preview image"} />
           ) : (
-            <div>{this.state.preview}</div>
+            <div>{this.renderPreviewWithTags(this.state.preview)}</div>
           )}
         </div>
       </div>

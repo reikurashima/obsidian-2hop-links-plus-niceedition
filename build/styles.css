@@ -90,12 +90,22 @@
   color: var(--text-box);
   font-size: 70%;
   white-space: pre-line;
+  overflow: hidden;
+  flex: 1;
+}
+
+.twohop-links-box-preview .preview-tag {
+  color: #5e8af6;
 }
 
 /* connected links */
 .twohop-links-connected-links-header {
   background-color: var(--bg-header-connected);
   color: var(--title-header-connected);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 /* two hop links */
@@ -108,6 +118,10 @@
 .twohop-links-properties-header {
   background-color: var(--bg-header-properties);
   color: var(--title-header-properties);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 /* links-based headers use the same properties style */
@@ -120,6 +134,10 @@
 .twohop-links-new-links-header {
   background-color: var(--bg-header-new);
   color: var(--title-header-new);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 .markdown-embed-content .twohop-links-container {
