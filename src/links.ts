@@ -63,8 +63,32 @@ export class Links {
         globalSeenSet
       );
 
-      // Merge link-based and tag-based groups into one unified list
-      tagLinksList = [...linkBasedList, ...tagBasedList];
+      // Merge link-based and tag-based groups, combining groups with the same property name
+      const mergedMap = new Map<string, PropertiesLinks>();
+      for (const group of [...linkBasedList, ...tagBasedList]) {
+        const existing = mergedMap.get(group.property);
+        if (existing) {
+          // Merge file entities, avoiding duplicates
+          for (const entity of group.fileEntities) {
+            if (
+              !existing.fileEntities.some(
+                (e) =>
+                  e.sourcePath === entity.sourcePath &&
+                  e.linkText === entity.linkText
+              )
+            ) {
+              existing.fileEntities.push(entity);
+            }
+          }
+        } else {
+          // Use "tags" key for unified 🔗 display
+          mergedMap.set(
+            group.property,
+            new PropertiesLinks(group.property, "tags", [...group.fileEntities])
+          );
+        }
+      }
+      tagLinksList = Array.from(mergedMap.values());
 
       frontmatterKeyLinksList =
         await this.getLinksListOfFilesWithFrontmatterKeys(
@@ -265,40 +289,71 @@ export class Links {
 
     if (activeFileLinks.size === 0) return [];
 
-    // For each link target, find all other files that also link to it
+    // Build a map from link target path to display name
+    const linkTargetNames: Map<string, string> = new Map();
+    for (const dest of activeFileLinks) {
+      linkTargetNames.set(dest, filePathToLinkText(dest));
+    }
+
+    // For each link target, find all other files that also link to it OR have #targetName tag
     const linkMap: Record<string, FileEntity[]> = {};
     const resolvedLinks: Record<string, Record<string, number>> =
       this.app.metadataCache.resolvedLinks;
 
-    for (const src of Object.keys(resolvedLinks)) {
-      if (src === activeFile.path) continue;
-      if (shouldExcludePath(src, this.settings.excludePaths)) continue;
+    const markdownFiles = this.app.vault
+      .getMarkdownFiles()
+      .filter(
+        (f: TFile) =>
+          f.path !== activeFile.path &&
+          !shouldExcludePath(f.path, this.settings.excludePaths)
+      );
 
-      for (const dest of Object.keys(resolvedLinks[src])) {
-        if (activeFileLinks.has(dest)) {
-          const linkText = filePathToLinkText(src);
+    for (const mdFile of markdownFiles) {
+      const linkText = filePathToLinkText(mdFile.path);
 
-          if (
-            this.settings.enableDuplicateRemoval &&
-            (backLinkSet.has(linkText) || globalSeenSet.has(linkText))
-          ) {
-            continue;
+      if (
+        this.settings.enableDuplicateRemoval &&
+        (backLinkSet.has(linkText) || globalSeenSet.has(linkText))
+      ) {
+        continue;
+      }
+
+      // Check which link targets this file references via [[link]]
+      const fileResolvedLinks = resolvedLinks[mdFile.path] || {};
+      const matchedDisplayNames = new Set<string>();
+
+      for (const [destPath, displayName] of linkTargetNames) {
+        if (fileResolvedLinks[destPath]) {
+          matchedDisplayNames.add(displayName);
+        }
+      }
+
+      // Also check which link targets this file references via #tag
+      const cache = this.app.metadataCache.getFileCache(mdFile);
+      if (cache) {
+        const fileTags = this.getTagsFromCache(cache, this.settings.excludeTags);
+        for (const tag of fileTags) {
+          for (const [, displayName] of linkTargetNames) {
+            if (tag === displayName) {
+              matchedDisplayNames.add(displayName);
+            }
           }
+        }
+      }
 
-          const displayName = filePathToLinkText(dest);
-          linkMap[displayName] = linkMap[displayName] ?? [];
+      for (const displayName of matchedDisplayNames) {
+        linkMap[displayName] = linkMap[displayName] ?? [];
 
-          const newFileEntity = new FileEntity(activeFile.path, linkText);
-          if (
-            !linkMap[displayName].some(
-              (e) =>
-                e.sourcePath === newFileEntity.sourcePath &&
-                e.linkText === newFileEntity.linkText
-            )
-          ) {
-            linkMap[displayName].push(newFileEntity);
-            globalSeenSet.add(linkText);
-          }
+        const newFileEntity = new FileEntity(activeFile.path, linkText);
+        if (
+          !linkMap[displayName].some(
+            (e) =>
+              e.sourcePath === newFileEntity.sourcePath &&
+              e.linkText === newFileEntity.linkText
+          )
+        ) {
+          linkMap[displayName].push(newFileEntity);
+          globalSeenSet.add(linkText);
         }
       }
     }
@@ -516,18 +571,49 @@ export class Links {
           !shouldExcludePath(markdownFile.path, this.settings.excludePaths)
       );
 
+    // Build a map from tag name to file path for resolving [[tag]] links
+    const tagToFilePath: Record<string, string> = {};
+    for (const tag of activeFileTags) {
+      const tagFile = this.app.metadataCache.getFirstLinkpathDest(
+        tag,
+        activeFile.path
+      );
+      if (tagFile) {
+        tagToFilePath[tag] = tagFile.path;
+      }
+    }
+
     for (const markdownFile of markdownFiles) {
       const cachedMetadata = this.app.metadataCache.getFileCache(markdownFile);
       if (!cachedMetadata) continue;
 
+      // Check tags: files that have #tag
       const fileTags = this.getTagsFromCache(
         cachedMetadata,
         this.settings.excludePaths
       );
 
-      for (const tag of fileTags) {
-        if (!activeFileTagSet.has(tag)) continue;
+      const matchedTags = new Set<string>();
 
+      for (const tag of fileTags) {
+        if (activeFileTagSet.has(tag)) {
+          matchedTags.add(tag);
+        }
+      }
+
+      // Also check links: files that have [[tag]] link
+      const resolvedLinks: Record<string, Record<string, number>> =
+        this.app.metadataCache.resolvedLinks;
+      const fileResolvedLinks = resolvedLinks[markdownFile.path] || {};
+      for (const tag of activeFileTags) {
+        if (matchedTags.has(tag)) continue;
+        const tagFilePath = tagToFilePath[tag];
+        if (tagFilePath && fileResolvedLinks[tagFilePath]) {
+          matchedTags.add(tag);
+        }
+      }
+
+      for (const tag of matchedTags) {
         tagMap[tag] = tagMap[tag] ?? [];
 
         if (
