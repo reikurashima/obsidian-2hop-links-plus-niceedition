@@ -1,6 +1,6 @@
 :root {
-  --box-width: 150px;
-  --box-height: 150px;
+  --box-width: 139px;
+  --box-height: 170px;
   --box-font-size: 100%;
 }
 /* switch light/dark mode */
@@ -42,7 +42,7 @@
 }
 .twohop-links-section {
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--box-width));
+  grid-template-columns: repeat(auto-fill, minmax(var(--box-width), 1fr));
   grid-gap: 8px;
   margin: 20px;
   font-size: var(--box-font-size);
@@ -51,8 +51,7 @@
 /* common */
 .twohop-links-box {
   box-sizing: border-box;
-  width: var(--box-width);
-  height: var(--box-height);
+  max-height: var(--box-height);
   padding: 10px;
   background-color: var(--bg-box);
   border-radius: 2px;
@@ -70,12 +69,12 @@
   color: var(--title-box);
   font-size: 90%;
   font-weight: 500;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   white-space: unset;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .twohop-links-box img {
@@ -155,15 +154,9 @@ body:not(.zoom-off)
 
 .load-more-button {
   width: -webkit-fill-available;
-  height: auto;
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.twohop-links-section .load-more-button {
-  grid-column: 1 / -1;
-  height: auto;
 }
 
 .TwoHopLinks {
@@ -181,15 +174,15 @@ id: 2hop-links-plus-niceedition
 settings:
     -
         id: box-width
-        title: Box width (px)
+        title: Box min width (px)
         type: variable-number
-        default: 150
+        default: 139
         format: px
     -
         id: box-height
-        title: Box height (px)
+        title: Box max height (px)
         type: variable-number
-        default: 150
+        default: 170
         format: px
     -
         id: box-font-size
