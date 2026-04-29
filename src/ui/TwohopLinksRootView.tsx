@@ -20,6 +20,7 @@ interface TwohopLinksRootViewProps {
   showNewLinks: boolean;
   showTagsLinks: boolean;
   showPropertiesLinks: boolean;
+  showImage: boolean;
   autoLoadTwoHopLinks: boolean;
   initialBoxCount: number;
   initialSectionCount: number;
@@ -132,6 +133,7 @@ export default class TwohopLinksRootView extends React.Component<
       showNewLinks,
       showTagsLinks,
       showPropertiesLinks,
+      showImage,
       autoLoadTwoHopLinks,
     } = this.props;
     const { isLoaded } = this.state;
@@ -171,6 +173,7 @@ export default class TwohopLinksRootView extends React.Component<
             title={"Links"}
             className={"twohop-links-back-links"}
             app={this.props.app}
+            showImage={showImage}
           />
         )}
         {showTagsLinks && (
@@ -186,6 +189,7 @@ export default class TwohopLinksRootView extends React.Component<
             }
             initialDisplayedEntitiesCount={this.props.initialBoxCount}
             resetDisplayedEntitiesCount={this.props !== this.state.prevProps}
+            showImage={showImage}
           />
         )}
         {this.state.displayedSectionCount.tagLinksList <
@@ -207,6 +211,7 @@ export default class TwohopLinksRootView extends React.Component<
             getTitle={this.props.getTitle}
             onLoadMore={() => this.loadMoreBox("newLinks")}
             app={this.props.app}
+            showImage={showImage}
           />
         )}
         {showPropertiesLinks && (
@@ -222,6 +227,7 @@ export default class TwohopLinksRootView extends React.Component<
             }
             initialDisplayedEntitiesCount={this.props.initialBoxCount}
             resetDisplayedEntitiesCount={this.props !== this.state.prevProps}
+            showImage={showImage}
           />
         )}
         {this.state.displayedSectionCount.frontmatterKeyLinksList <

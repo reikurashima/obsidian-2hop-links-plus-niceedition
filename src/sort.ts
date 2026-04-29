@@ -113,7 +113,16 @@ export async function getSortedFiles(
 }
 
 export function getTagHierarchySortFunction(sortOrder: string) {
-  const sortFunction = getSortFunction(sortOrder);
+  const compareText = (a: string, b: string) => {
+    if (sortOrder === "random") {
+      return Math.random() - 0.5;
+    }
+    if (sortOrder === "filenameDesc") {
+      return b.localeCompare(a);
+    }
+    return a.localeCompare(b);
+  };
+
   return (a: PropertiesLinks, b: PropertiesLinks) => {
     const aTagHierarchy = a.property.split("/");
     const bTagHierarchy = b.property.split("/");
@@ -123,12 +132,12 @@ export function getTagHierarchySortFunction(sortOrder: string) {
       i++
     ) {
       if (aTagHierarchy[i] !== bTagHierarchy[i]) {
-        return sortFunction(aTagHierarchy[i], bTagHierarchy[i]);
+        return compareText(aTagHierarchy[i], bTagHierarchy[i]);
       }
     }
     if (aTagHierarchy.length !== bTagHierarchy.length) {
       return aTagHierarchy.length > bTagHierarchy.length ? -1 : 1;
     }
-    return sortFunction(a.property, b.property);
+    return compareText(a.property, b.property);
   };
 }

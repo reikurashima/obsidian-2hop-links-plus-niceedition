@@ -10,7 +10,7 @@ import ReactDOM from "react-dom";
 import { FileEntity } from "./model/FileEntity";
 import TwohopLinksRootView from "./ui/TwohopLinksRootView";
 import { PropertiesLinks } from "./model/PropertiesLinks";
-import { removeBlockReference } from "./utils";
+import { removeBlockReference, resolveLinkFile } from "./utils";
 import {
   TwohopPluginSettings,
   TwohopSettingTab,
@@ -83,8 +83,9 @@ export default class TwohopLinksPlugin extends Plugin {
     console.debug(
       `Open file: linkText='${linkText}', sourcePath='${fileEntity.sourcePath}'`
     );
-    const file = this.app.metadataCache.getFirstLinkpathDest(
-      linkText,
+    const file = resolveLinkFile(
+      this.app,
+      fileEntity.linkText,
       fileEntity.sourcePath
     );
     if (file == null) {
@@ -92,6 +93,13 @@ export default class TwohopLinksPlugin extends Plugin {
         console.log("Canceled!!");
         return;
       }
+      return this.app.workspace.openLinkText(
+        fileEntity.linkText,
+        fileEntity.sourcePath
+      );
+    }
+    if (file.extension !== "md" && file.extension !== "markdown") {
+      return this.app.workspace.getLeaf(false).openFile(file);
     }
     return this.app.workspace.openLinkText(
       fileEntity.linkText,
@@ -107,7 +115,10 @@ export default class TwohopLinksPlugin extends Plugin {
     const sourcePath = activeFile ? activeFile.path : "";
 
     // Try to find a file matching the property name
-    const file = this.app.metadataCache.getFirstLinkpathDest(pageName, sourcePath);
+    const file = this.app.metadataCache.getFirstLinkpathDest(
+      pageName,
+      sourcePath
+    );
     if (file) {
       return this.app.workspace.openLinkText(pageName, sourcePath);
     }
@@ -167,7 +178,14 @@ export default class TwohopLinksPlugin extends Plugin {
     }
 
     const cache = this.app.metadataCache.getFileCache(file);
-    return cache && cache.links ? cache.links.map((link) => link.link) : [];
+    if (!cache) {
+      return [];
+    }
+    return [
+      ...(cache.links || []),
+      ...(cache.embeds || []),
+      ...((cache as any).frontmatterLinks || []),
+    ].map((link) => link.link);
   }
 
   private getActiveFileTags(file: TFile | null): string[] {
@@ -206,15 +224,14 @@ export default class TwohopLinksPlugin extends Plugin {
 
     if (
       isForceUpdate ||
-      this.previousLinks.sort().join(",") !== currentLinks.sort().join(",") ||
-      this.previousTags.sort().join(",") !== currentTags.sort().join(",")
+      activeFile.extension === "canvas" ||
+      [...this.previousLinks].sort().join(",") !==
+        [...currentLinks].sort().join(",") ||
+      [...this.previousTags].sort().join(",") !==
+        [...currentTags].sort().join(",")
     ) {
-      const {
-        newLinks,
-        backwardLinks,
-        tagLinksList,
-        frontmatterKeyLinksList,
-      } = await this.links.gatherTwoHopLinks(activeFile);
+      const { newLinks, backwardLinks, tagLinksList, frontmatterKeyLinksList } =
+        await this.links.gatherTwoHopLinks(activeFile);
 
       for (const container of this.getContainerElements(markdownView)) {
         await this.injectTwohopLinks(
@@ -253,6 +270,7 @@ export default class TwohopLinksPlugin extends Plugin {
         showNewLinks={this.settings.showNewLinks}
         showTagsLinks={this.settings.showTagsLinks}
         showPropertiesLinks={this.settings.showPropertiesLinks}
+        showImage={this.settings.showImage}
         autoLoadTwoHopLinks={this.settings.autoLoadTwoHopLinks}
         initialBoxCount={this.settings.initialBoxCount}
         initialSectionCount={this.settings.initialSectionCount}

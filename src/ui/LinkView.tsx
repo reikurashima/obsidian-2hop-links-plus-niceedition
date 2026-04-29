@@ -1,6 +1,6 @@
 import React from "react";
 import { FileEntity } from "../model/FileEntity";
-import { removeBlockReference } from "../utils";
+import { removeBlockReference, resolveLinkFile } from "../utils";
 import { App, Menu, HoverParent, HoverPopover, WorkspaceLeaf } from "obsidian";
 import { HOVER_LINK_ID } from "../main";
 
@@ -10,6 +10,7 @@ interface LinkViewProps {
   getPreview: (fileEntity: FileEntity, signal: AbortSignal) => Promise<string>;
   getTitle: (fileEntity: FileEntity, signal: AbortSignal) => Promise<string>;
   app: App;
+  showImage: boolean;
 }
 
 interface LinkViewState {
@@ -49,11 +50,11 @@ export default class LinkView
     const title = await this.props.getTitle(
       this.props.fileEntity,
       this.abortController.signal
-    )
+    );
     if (!this.abortController.signal.aborted) {
       this.setState({
         preview: preview,
-        title: title
+        title: title,
       });
     }
   }
@@ -64,10 +65,15 @@ export default class LinkView
 
   async openFileWithOptions(options?: "tab" | "split" | "window") {
     const { app, fileEntity } = this.props;
-    const file = app.metadataCache.getFirstLinkpathDest(
-      removeBlockReference(fileEntity.linkText),
+    const file = resolveLinkFile(
+      app,
+      fileEntity.linkText,
       fileEntity.sourcePath
     );
+    if (!file) {
+      await this.props.onClick(fileEntity);
+      return;
+    }
     let leaf: WorkspaceLeaf;
     leaf = app.workspace.getLeaf(options as any);
 
@@ -199,15 +205,19 @@ export default class LinkView
           event.dataTransfer.setData("text/plain", `[[${fileEntityLinkText}]]`);
         }}
       >
-        <div className="twohop-links-box-title">
-          {this.state.title}
-        </div>
+        <div className="twohop-links-box-title">{this.state.title}</div>
         <div className={"twohop-links-box-preview"}>
           {this.state.preview &&
+          this.props.showImage &&
           this.state.preview.match(/^(app|https?|capacitor):\/\//) ? (
             <img src={this.state.preview} alt={"preview image"} />
           ) : (
-            <div>{this.renderPreviewWithTags(this.state.preview)}</div>
+            <div>
+              {this.state.preview &&
+              this.state.preview.match(/^(app|https?|capacitor):\/\//)
+                ? ""
+                : this.renderPreviewWithTags(this.state.preview)}
+            </div>
           )}
         </div>
       </div>

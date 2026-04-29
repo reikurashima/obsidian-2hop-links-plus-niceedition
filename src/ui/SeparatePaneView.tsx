@@ -57,8 +57,11 @@ export class SeparatePaneView extends ItemView {
 
       if (
         isForceUpdate ||
-        this.previousLinks.sort().join(",") !== currentLinks.sort().join(",") ||
-        this.previousTags.sort().join(",") !== currentTags.sort().join(",") ||
+        activeFile?.extension === "canvas" ||
+        [...this.previousLinks].sort().join(",") !==
+          [...currentLinks].sort().join(",") ||
+        [...this.previousTags].sort().join(",") !==
+          [...currentTags].sort().join(",") ||
         activeFile === null
       ) {
         const {
@@ -129,7 +132,14 @@ export class SeparatePaneView extends ItemView {
     }
 
     const cache = this.app.metadataCache.getFileCache(file);
-    return cache && cache.links ? cache.links.map((link) => link.link) : [];
+    if (!cache) {
+      return [];
+    }
+    return [
+      ...(cache.links || []),
+      ...(cache.embeds || []),
+      ...((cache as any).frontmatterLinks || []),
+    ].map((link) => link.link);
   }
 
   private getActiveFileTags(file: TFile | null): string[] {

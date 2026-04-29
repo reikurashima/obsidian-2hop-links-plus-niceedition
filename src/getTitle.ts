@@ -1,17 +1,26 @@
 import { FileEntity } from "./model/FileEntity";
-import { removeBlockReference } from "./utils";
+import {
+  filePathToDisplayText,
+  removeBlockReference,
+  resolveLinkFile,
+} from "./utils";
 
 export async function getTitle(fileEntity: FileEntity) {
   const linkText = removeBlockReference(fileEntity.linkText);
-
-  if (!this.settings.frontmatterPropertyKeyAsTitle) return linkText;
-  const file = this.app.metadataCache.getFirstLinkpathDest(
-    linkText,
+  const file = resolveLinkFile(
+    this.app,
+    fileEntity.linkText,
     fileEntity.sourcePath
   );
 
+  if (!this.settings.frontmatterPropertyKeyAsTitle) {
+    return file ? filePathToDisplayText(file.path) : linkText;
+  }
+
   if (file == null) return linkText;
-  if (!file.extension?.match(/^(md|markdown)$/)) return linkText;
+  if (!file.extension?.match(/^(md|markdown)$/)) {
+    return filePathToDisplayText(file.path);
+  }
 
   const metadata = this.app.metadataCache.getFileCache(file);
 

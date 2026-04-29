@@ -22,6 +22,38 @@ export class Links {
     this.settings = settings;
   }
 
+  private getLinkCandidateFiles(activeFile: TFile): TFile[] {
+    return this.app.vault
+      .getFiles()
+      .filter(
+        (file: TFile) =>
+          (file.extension === "md" || file.extension === "canvas") &&
+          file.path !== activeFile.path &&
+          !shouldExcludePath(file.path, this.settings.excludePaths)
+      );
+  }
+
+  private async getCanvasLinkedFilePaths(
+    canvasFile: TFile
+  ): Promise<Set<string>> {
+    const linkedFilePaths = new Set<string>();
+    const canvasContent = await this.app.vault.read(canvasFile);
+    try {
+      const canvasData = JSON.parse(canvasContent);
+      if (!Array.isArray(canvasData?.nodes)) {
+        return linkedFilePaths;
+      }
+      for (const node of canvasData.nodes) {
+        if (node.type === "file" && typeof node.file === "string") {
+          linkedFilePaths.add(node.file);
+        }
+      }
+    } catch (error) {
+      console.error("Invalid JSON in canvas:", error);
+    }
+    return linkedFilePaths;
+  }
+
   async gatherTwoHopLinks(activeFile: TFile | null): Promise<{
     newLinks: FileEntity[];
     backwardLinks: FileEntity[];
@@ -201,9 +233,12 @@ export class Links {
               seen.add(key);
               const targetFile = this.app.vault.getAbstractFileByPath(key);
               if (
-                !targetFile ||
+                targetFile &&
                 shouldExcludePath(targetFile.path, this.settings.excludePaths)
               ) {
+                continue;
+              }
+              if (!targetFile) {
                 newLinks.push(new FileEntity(activeFile.path, key));
               }
             }
@@ -214,7 +249,10 @@ export class Links {
 
     // Also add tags whose corresponding page doesn't exist yet
     if (activeFileCache) {
-      const seen = newLinks.reduce((s, e) => { s.add(e.linkText); return s; }, new Set<string>());
+      const seen = newLinks.reduce((s, e) => {
+        s.add(e.linkText);
+        return s;
+      }, new Set<string>());
       const activeFileTags = this.getTagsFromCache(
         activeFileCache,
         this.settings.excludeTags
@@ -261,7 +299,10 @@ export class Links {
           key,
           activeFile.path
         );
-        if (targetFile && !shouldExcludePath(targetFile.path, this.settings.excludePaths)) {
+        if (
+          targetFile &&
+          !shouldExcludePath(targetFile.path, this.settings.excludePaths)
+        ) {
           activeFileLinks.add(targetFile.path);
         }
       }
@@ -279,7 +320,10 @@ export class Links {
         for (const node of canvasData.nodes) {
           if (node.type === "file") {
             const targetFile = this.app.vault.getAbstractFileByPath(node.file);
-            if (targetFile && !shouldExcludePath(targetFile.path, this.settings.excludePaths)) {
+            if (
+              targetFile &&
+              !shouldExcludePath(targetFile.path, this.settings.excludePaths)
+            ) {
               activeFileLinks.add(targetFile.path);
             }
           }
@@ -297,19 +341,13 @@ export class Links {
 
     // For each link target, find all other files that also link to it OR have #targetName tag
     const linkMap: Record<string, FileEntity[]> = {};
-    const resolvedLinks: Record<string, Record<string, number>> =
-      this.app.metadataCache.resolvedLinks;
+    const resolvedLinks: Record<string, Record<string, number>> = this.app
+      .metadataCache.resolvedLinks;
 
-    const markdownFiles = this.app.vault
-      .getMarkdownFiles()
-      .filter(
-        (f: TFile) =>
-          f.path !== activeFile.path &&
-          !shouldExcludePath(f.path, this.settings.excludePaths)
-      );
+    const candidateFiles = this.getLinkCandidateFiles(activeFile);
 
-    for (const mdFile of markdownFiles) {
-      const linkText = filePathToLinkText(mdFile.path);
+    for (const candidateFile of candidateFiles) {
+      const linkText = filePathToLinkText(candidateFile.path);
 
       if (
         this.settings.enableDuplicateRemoval &&
@@ -319,23 +357,37 @@ export class Links {
       }
 
       // Check which link targets this file references via [[link]]
-      const fileResolvedLinks = resolvedLinks[mdFile.path] || {};
       const matchedDisplayNames = new Set<string>();
 
-      for (const [destPath, displayName] of linkTargetNames) {
-        if (fileResolvedLinks[destPath]) {
-          matchedDisplayNames.add(displayName);
+      if (candidateFile.extension === "canvas") {
+        const canvasLinkedFilePaths = await this.getCanvasLinkedFilePaths(
+          candidateFile
+        );
+        for (const [destPath, displayName] of linkTargetNames) {
+          if (canvasLinkedFilePaths.has(destPath)) {
+            matchedDisplayNames.add(displayName);
+          }
         }
-      }
+      } else {
+        const fileResolvedLinks = resolvedLinks[candidateFile.path] || {};
+        for (const [destPath, displayName] of linkTargetNames) {
+          if (fileResolvedLinks[destPath]) {
+            matchedDisplayNames.add(displayName);
+          }
+        }
 
-      // Also check which link targets this file references via #tag
-      const cache = this.app.metadataCache.getFileCache(mdFile);
-      if (cache) {
-        const fileTags = this.getTagsFromCache(cache, this.settings.excludeTags);
-        for (const tag of fileTags) {
-          for (const [, displayName] of linkTargetNames) {
-            if (tag === displayName) {
-              matchedDisplayNames.add(displayName);
+        // Also check which link targets this file references via #tag
+        const cache = this.app.metadataCache.getFileCache(candidateFile);
+        if (cache) {
+          const fileTags = this.getTagsFromCache(
+            cache,
+            this.settings.excludeTags
+          );
+          for (const tag of fileTags) {
+            for (const [, displayName] of linkTargetNames) {
+              if (tag === displayName) {
+                matchedDisplayNames.add(displayName);
+              }
             }
           }
         }
@@ -344,7 +396,7 @@ export class Links {
       for (const displayName of matchedDisplayNames) {
         linkMap[displayName] = linkMap[displayName] ?? [];
 
-        const newFileEntity = new FileEntity(activeFile.path, linkText);
+        const newFileEntity = new FileEntity(candidateFile.path, linkText);
         if (
           !linkMap[displayName].some(
             (e) =>
@@ -508,7 +560,9 @@ export class Links {
     // 5. Canvas backlinks
     const allFiles: TFile[] = this.app.vault.getFiles();
     const canvasFiles: TFile[] = allFiles.filter(
-      (file) => file.extension === "canvas"
+      (file) =>
+        file.extension === "canvas" &&
+        !shouldExcludePath(file.path, this.settings.excludePaths)
     );
 
     for (const canvasFile of canvasFiles) {
@@ -531,7 +585,10 @@ export class Links {
         for (const node of canvasData.nodes) {
           if (node.type === "file" && node.file === activeFile.path) {
             const linkText = filePathToLinkText(canvasFile.path);
-            if (!forwardLinkSet.has(linkText) && !seenSources.has(canvasFile.path)) {
+            if (
+              !forwardLinkSet.has(linkText) &&
+              !seenSources.has(canvasFile.path)
+            ) {
               seenSources.add(canvasFile.path);
               backLinkEntities.push(new FileEntity(canvasFile.path, linkText));
             }
@@ -563,13 +620,7 @@ export class Links {
     const tagMap: Record<string, FileEntity[]> = {};
     const seen: Record<string, boolean> = {};
 
-    const markdownFiles = this.app.vault
-      .getMarkdownFiles()
-      .filter(
-        (markdownFile: TFile) =>
-          markdownFile !== activeFile &&
-          !shouldExcludePath(markdownFile.path, this.settings.excludePaths)
-      );
+    const candidateFiles = this.getLinkCandidateFiles(activeFile);
 
     // Build a map from tag name to file path for resolving [[tag]] links
     const tagToFilePath: Record<string, string> = {};
@@ -583,33 +634,46 @@ export class Links {
       }
     }
 
-    for (const markdownFile of markdownFiles) {
-      const cachedMetadata = this.app.metadataCache.getFileCache(markdownFile);
-      if (!cachedMetadata) continue;
-
-      // Check tags: files that have #tag
-      const fileTags = this.getTagsFromCache(
-        cachedMetadata,
-        this.settings.excludePaths
-      );
-
+    for (const candidateFile of candidateFiles) {
       const matchedTags = new Set<string>();
 
-      for (const tag of fileTags) {
-        if (activeFileTagSet.has(tag)) {
-          matchedTags.add(tag);
+      if (candidateFile.extension === "canvas") {
+        const canvasLinkedFilePaths = await this.getCanvasLinkedFilePaths(
+          candidateFile
+        );
+        for (const tag of activeFileTags) {
+          const tagFilePath = tagToFilePath[tag];
+          if (tagFilePath && canvasLinkedFilePaths.has(tagFilePath)) {
+            matchedTags.add(tag);
+          }
         }
-      }
+      } else {
+        const cachedMetadata =
+          this.app.metadataCache.getFileCache(candidateFile);
+        if (!cachedMetadata) continue;
 
-      // Also check links: files that have [[tag]] link
-      const resolvedLinks: Record<string, Record<string, number>> =
-        this.app.metadataCache.resolvedLinks;
-      const fileResolvedLinks = resolvedLinks[markdownFile.path] || {};
-      for (const tag of activeFileTags) {
-        if (matchedTags.has(tag)) continue;
-        const tagFilePath = tagToFilePath[tag];
-        if (tagFilePath && fileResolvedLinks[tagFilePath]) {
-          matchedTags.add(tag);
+        // Check tags: files that have #tag
+        const fileTags = this.getTagsFromCache(
+          cachedMetadata,
+          this.settings.excludeTags
+        );
+
+        for (const tag of fileTags) {
+          if (activeFileTagSet.has(tag)) {
+            matchedTags.add(tag);
+          }
+        }
+
+        // Also check links: files that have [[tag]] link
+        const resolvedLinks: Record<string, Record<string, number>> = this.app
+          .metadataCache.resolvedLinks;
+        const fileResolvedLinks = resolvedLinks[candidateFile.path] || {};
+        for (const tag of activeFileTags) {
+          if (matchedTags.has(tag)) continue;
+          const tagFilePath = tagToFilePath[tag];
+          if (tagFilePath && fileResolvedLinks[tagFilePath]) {
+            matchedTags.add(tag);
+          }
         }
       }
 
@@ -618,14 +682,14 @@ export class Links {
 
         if (
           this.settings.enableDuplicateRemoval &&
-          (seen[markdownFile.path] ||
-            forwardLinkSet.has(filePathToLinkText(markdownFile.path)) ||
-            twoHopLinkSet.has(filePathToLinkText(markdownFile.path)))
+          (seen[candidateFile.path] ||
+            forwardLinkSet.has(filePathToLinkText(candidateFile.path)) ||
+            twoHopLinkSet.has(filePathToLinkText(candidateFile.path)))
         )
           continue;
 
-        const linkText = filePathToLinkText(markdownFile.path);
-        const newFileEntity = new FileEntity(activeFile.path, linkText);
+        const linkText = filePathToLinkText(candidateFile.path);
+        const newFileEntity = new FileEntity(candidateFile.path, linkText);
 
         if (
           !tagMap[tag].some(
@@ -635,6 +699,7 @@ export class Links {
           )
         ) {
           tagMap[tag].push(newFileEntity);
+          seen[candidateFile.path] = true;
         }
       }
     }
@@ -745,7 +810,7 @@ export class Links {
 
               const linkText = filePathToLinkText(markdownFile.path);
               frontmatterKeyMap[key][hierarchicalValue].push(
-                new FileEntity(activeFile.path, linkText)
+                new FileEntity(markdownFile.path, linkText)
               );
               seen[markdownFile.path] = true;
             }

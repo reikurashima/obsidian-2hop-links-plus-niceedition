@@ -5,7 +5,6 @@ import { TwohopLink } from "../model/TwohopLink";
 import { App, setIcon } from "obsidian";
 
 interface TwohopLinksViewProps {
-  
   twoHopLinks: TwohopLink[];
   onClick: (fileEntity: FileEntity) => Promise<void>;
   getPreview: (fileEntity: FileEntity) => Promise<string>;
@@ -14,6 +13,7 @@ interface TwohopLinksViewProps {
   displayedSectionCount: number;
   initialDisplayedEntitiesCount: number;
   resetDisplayedEntitiesCount: boolean;
+  showImage: boolean;
 }
 
 interface LinkComponentProps {
@@ -24,6 +24,7 @@ interface LinkComponentProps {
   app: App;
   initialDisplayedEntitiesCount: number;
   resetDisplayedEntitiesCount: boolean;
+  showImage: boolean;
 }
 
 interface LinkComponentState {
@@ -41,7 +42,7 @@ class LinkComponent extends React.Component<
     super(props);
     this.state = {
       displayedEntitiesCount: props.initialDisplayedEntitiesCount,
-      title: null
+      title: null,
     };
   }
 
@@ -50,10 +51,10 @@ class LinkComponent extends React.Component<
       setIcon(this.loadMoreRef.current, "more-horizontal");
     }
 
-    const title = await this.props.getTitle(this.props.link.link)
+    const title = await this.props.getTitle(this.props.link.link);
 
     this.setState({
-      title: title
+      title: title,
     });
   }
 
@@ -106,6 +107,7 @@ class LinkComponent extends React.Component<
               getPreview={this.props.getPreview}
               getTitle={this.props.getTitle}
               app={this.props.app}
+              showImage={this.props.showImage}
             />
           ))}
         {this.props.link.fileEntities.length >
@@ -143,6 +145,7 @@ class TwohopLinksView extends React.Component<TwohopLinksViewProps> {
               resetDisplayedEntitiesCount={
                 this.props.resetDisplayedEntitiesCount
               }
+              showImage={this.props.showImage}
             />
           ))}
       </div>

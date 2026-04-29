@@ -14,6 +14,7 @@ interface PropertiesLinksListViewProps {
   displayedSectionCount: number;
   initialDisplayedEntitiesCount: number;
   resetDisplayedEntitiesCount: boolean;
+  showImage: boolean;
 }
 
 interface LinkComponentProps {
@@ -25,6 +26,7 @@ interface LinkComponentProps {
   app: App;
   initialDisplayedEntitiesCount: number;
   resetDisplayedEntitiesCount: boolean;
+  showImage: boolean;
 }
 
 interface LinkComponentState {
@@ -92,8 +94,8 @@ const LinkComponent = React.memo(
             {this.props.tagLink.key === "tags"
               ? `🔗${this.props.tagLink.property}`
               : this.props.tagLink.key
-                ? `${this.props.tagLink.key}: ${this.props.tagLink.property}`
-                : this.props.tagLink.property}
+              ? `${this.props.tagLink.key}: ${this.props.tagLink.property}`
+              : this.props.tagLink.property}
           </div>
           {this.props.tagLink.fileEntities
             .slice(0, this.state.displayedEntitiesCount)
@@ -105,6 +107,7 @@ const LinkComponent = React.memo(
                 getPreview={this.props.getPreview}
                 getTitle={this.props.getTitle}
                 app={this.props.app}
+                showImage={this.props.showImage}
               />
             ))}
           {this.props.tagLink.fileEntities.length >
@@ -143,6 +146,7 @@ const PropertiesLinksListView = React.memo(
                 resetDisplayedEntitiesCount={
                   this.props.resetDisplayedEntitiesCount
                 }
+                showImage={this.props.showImage}
               />
             ))}
         </div>

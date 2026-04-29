@@ -13,6 +13,7 @@ interface ConnectedLinksViewProps {
   title: string;
   className: string;
   app: App;
+  showImage: boolean;
 }
 
 export default class ConnectedLinksView extends React.Component<ConnectedLinksViewProps> {
@@ -35,7 +36,8 @@ export default class ConnectedLinksView extends React.Component<ConnectedLinksVi
       nextProps.displayedBoxCount !== this.props.displayedBoxCount ||
       nextProps.title !== this.props.title ||
       nextProps.className !== this.props.className ||
-      nextProps.app !== this.props.app
+      nextProps.app !== this.props.app ||
+      nextProps.showImage !== this.props.showImage
     );
   }
 
@@ -59,6 +61,7 @@ export default class ConnectedLinksView extends React.Component<ConnectedLinksVi
                   getPreview={this.props.getPreview}
                   getTitle={this.props.getTitle}
                   app={this.props.app}
+                  showImage={this.props.showImage}
                 />
               );
             })}

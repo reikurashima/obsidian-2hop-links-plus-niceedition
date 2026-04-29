@@ -11,6 +11,7 @@ interface NewLinksViewProps {
   getTitle: (fileEntity: FileEntity) => Promise<string>;
   onLoadMore: () => void;
   app: App;
+  showImage: boolean;
 }
 
 export default class NewLinksView extends React.Component<NewLinksViewProps> {
@@ -24,7 +25,8 @@ export default class NewLinksView extends React.Component<NewLinksViewProps> {
     return (
       this.props.fileEntities !== nextProps.fileEntities ||
       this.props.displayedBoxCount !== nextProps.displayedBoxCount ||
-      this.props.app !== nextProps.app
+      this.props.app !== nextProps.app ||
+      this.props.showImage !== nextProps.showImage
     );
   }
 
@@ -58,6 +60,7 @@ export default class NewLinksView extends React.Component<NewLinksViewProps> {
                   getPreview={this.props.getPreview}
                   getTitle={this.props.getTitle}
                   app={this.props.app}
+                  showImage={this.props.showImage}
                 />
               );
             })}
